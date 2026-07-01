@@ -1,0 +1,15 @@
+Goal:
+
+Build Kinematics : 1d, 2d ( possibly 3d physics engine )
+Simulate based on laws on kinematics
+
+Detailed:
+
+A particle, given specific velocity, acceleration, starts moving
+
+Plot the displacement, velocity, acceleration curve.
+
+Given initial acceleration, velocity:
+- We can move character with arrow keys ( based on direction )
+- Arrow key provide - ACCELERATION. If it's opposite to velocity, slow down, else acceleration adds up to velocity
+- (optional) We can move character automatically on a specific path (based on some automated algorithms by building maize like structure )
