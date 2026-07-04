@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     // 1. Create the Module
     // We pass .link_libc = true directly in the options struct.
     const mod = b.addModule("root", .{
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,

@@ -5,11 +5,29 @@ Simulate based on laws on kinematics
 
 Detailed:
 
-A particle, given specific velocity, acceleration, starts moving
+    - A particle, given specific velocity, acceleration, starts moving, when "collision" with boundaries, repel
+    - Primarily follow 2d kinematics laws (except collision where it's elastic)
 
-Plot the displacement, velocity, acceleration curve.
+    - <Deferred for Later> Plot the displacement, velocity, acceleration curve (maybe in a separate place or shifted window)
+    Meanwhile, print the stats like:
+    ( posn(both direction), v (both direction), a (both direction), seconds elapsed )
+
 
 Given initial acceleration, velocity:
-- We can move character with arrow keys ( based on direction )
-- Arrow key provide - ACCELERATION. If it's opposite to velocity, slow down, else acceleration adds up to velocity
-- (optional) We can move character automatically on a specific path (based on some automated algorithms by building maize like structure )
+    - Input config file to set initial params (velocity, posn, acceleration of object, external forces - accl like gravity)
+    - We can move character with input (file or script - can use this to automate)
+    - Arrow key provide - ACCELERATION. If it's opposite to velocity, slow down, else acceleration adds up to velocity
+    - (optional) We can move character automatically on a specific path (based on some automated algorithms by building maize like structure )
+
+
+Screen UI:
+
+- top right corner - Stats
+- whole screen, particle (filled circle)
+- Screen Has XY axis with actual pixel markings based on proportions
+- multiple options to configure between game modes
+
+Final product like:
+    1. Cannon shooter with distance count
+    2. Side scroller with jump
+    3. all direction movement 2d like zelda/pokemon etc.

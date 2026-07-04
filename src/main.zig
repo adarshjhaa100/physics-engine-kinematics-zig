@@ -1,26 +1,19 @@
 const std = @import("std");
+const SCHEMA = @import("type_schema.zig");
 
 const c = @cImport({
     @cInclude("SDL3/SDL.h");
     @cInclude("SDL3/SDL_main.h");
 });
 
-const Velocity = struct {
-    vx: f32,
-    vy: f32,
-};
-
-const Position = struct {
-    x: f32,
-    y: f32,
-};
-
 const SCREEN_HEIGHT = 600;
 const SCREEN_WIDTH = 800;
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
 var prevTime: u64 = 0;
-var rectPosition: Position = .{ .x = 0, .y = 100 };
+const ACCL_G = 9.8;
+const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
+var rectPosition: SCHEMA.Position = INITIAL_POS;
 
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
@@ -30,19 +23,14 @@ pub fn main() void {
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
 
-pub fn translate2DShape(initialPos: Position, vInit: Velocity, a: Velocity, tick: f32) Position {
-    // const finalPos: Position = .{
-    //     .x = @mod((initialPosn.x + v.vx * tick), SCREEN_WIDTH - 10),
-    //     .y = @mod((initialPosn.y + v.vy * tick), SCREEN_HEIGHT - 10),
-    // };
-    //
+pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: SCHEMA.Velocity, tick: f32) SCHEMA.Position {
     std.debug.print("Posn {}\n", .{initialPos});
     std.debug.print("Current Velocity vx={}, vy={}\n", .{ vInit.vx + a.vx * tick, vInit.vy + a.vy * tick });
 
     // x2 = x1+ut (x1 is the position at the start, the above code was wrong)
-    const finalPos: Position = .{
-        .x = @mod((0 + vInit.vx * tick + a.vx * tick * tick / 2), SCREEN_WIDTH - 10),
-        .y = @mod((100 + vInit.vy * tick + a.vy * tick * tick / 2), SCREEN_HEIGHT - 10),
+    const finalPos: SCHEMA.Position = .{
+        .x = @mod((INITIAL_POS.x + vInit.vx * tick + a.vx * tick * tick / 2), SCREEN_WIDTH - 10),
+        .y = @mod((INITIAL_POS.y + vInit.vy * tick + a.vy * tick * tick / 2), SCREEN_HEIGHT - 10),
     };
 
     // x2 = x1 + u*t
@@ -100,20 +88,30 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     _ = appstate;
 
+    const key_states = c.SDL_GetKeyboardState(null);
+
+    for (key_states, 0..512) |_, i| {
+        if (key_states[i]) {
+            std.debug.print("Key {} is pressed\n", .{i});
+        }
+    }
+
+    // This line is necessary since this color is what SDL will use to clear and paint screen
+    // Sdl render options take the last draw color set
+    _ = c.SDL_SetRenderDrawColor(renderer, 20, 20, 20, c.SDL_ALPHA_OPAQUE); // black background
+    _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
+
     var rect: c.SDL_FRect = .{};
-    const vel: Velocity = .{ .vx = 5, .vy = 0 };
-    const acc: Velocity = .{ .vx = 10, .vy = 0 };
+    const vel: SCHEMA.Velocity = .{ .vx = 50, .vy = -50 };
+    const acc: SCHEMA.Velocity = .{ .vx = 10, .vy = -3 + ACCL_G };
 
     // time
     const currentTick: f32 = @as(f32, @floatFromInt(c.SDL_GetTicks())) / 1000.0; // time in seconds
     std.debug.print("CurrentTick: {}\n", .{currentTick});
 
-    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 0, c.SDL_ALPHA_OPAQUE); // black background
-    _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
-
     rectPosition = translate2DShape(rectPosition, vel, acc, currentTick);
 
-    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 255, c.SDL_ALPHA_OPAQUE); // blue
+    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 220, c.SDL_ALPHA_OPAQUE); // blue
     rect.x = rectPosition.x;
     rect.y = rectPosition.y;
     rect.w = 50;
