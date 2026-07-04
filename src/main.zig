@@ -88,9 +88,10 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     _ = appstate;
 
+    // Keyboard input, key_states is snapshot of internal SDL arr
+    // This has size SDL_SCANCODE_COUNT(512)
     const key_states = c.SDL_GetKeyboardState(null);
-
-    for (key_states, 0..512) |_, i| {
+    for (key_states, 0..c.SDL_SCANCODE_COUNT) |_, i| {
         if (key_states[i]) {
             std.debug.print("Key {} is pressed\n", .{i});
         }
