@@ -30,6 +30,7 @@ pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: 
     std.debug.print("Current Velocity vx={}, vy={}\n", .{ vInit.vx + a.vx * tick, vInit.vy + a.vy * tick });
 
     // allocate text using default allocator and get a slice to it
+    // This is runtime now!
     const textStats = std.fmt.allocPrint(allocator, "\nPosn {}\n", .{initialPos}) catch "Error";
     defer allocator.free(textStats);
     std.debug.print("Len {}\n", .{textStats.len});
