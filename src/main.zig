@@ -14,11 +14,13 @@ var prevTime: u64 = 0;
 const ACCL_G = 9.8;
 const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
 var rectPosition: SCHEMA.Position = INITIAL_POS;
+var allocator: std.mem.Allocator = undefined;
 
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
 // Inside it, we immediately delegate execution to SDL3's C callback engine.
-pub fn main() void {
+pub fn main(init: std.process.Init) void {
+    allocator = init.gpa;
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
@@ -27,7 +29,18 @@ pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: 
     std.debug.print("Posn {}\n", .{initialPos});
     std.debug.print("Current Velocity vx={}, vy={}\n", .{ vInit.vx + a.vx * tick, vInit.vy + a.vy * tick });
 
-    // x2 = x1+ut (x1 is the position at the start, the above code was wrong)
+    // allocate text using default allocator and get a slice to it
+    const textStats = std.fmt.allocPrint(allocator, "\nPosn {}\n", .{initialPos}) catch "Error";
+    defer allocator.free(textStats);
+    std.debug.print("Len {}\n", .{textStats.len});
+
+    // render Text
+    // Use this to scale text - SDL_SetRenderScale(renderer, 4.0f, 4.0f);
+    _ = c.SDL_SetRenderScale(renderer, 1, 1);
+    _ = c.SDL_SetRenderDrawColor(renderer, 220, 220, 220, c.SDL_ALPHA_OPAQUE);
+
+    _ = c.SDL_RenderDebugText(renderer, SCREEN_WIDTH - @as(f32, @floatFromInt(textStats.len * 8)), 10, textStats.ptr);
+    // x2 = x1+ut (x1 is the position at the start, the abov    e code was wrong)
     const finalPos: SCHEMA.Position = .{
         .x = @mod((INITIAL_POS.x + vInit.vx * tick + a.vx * tick * tick / 2), SCREEN_WIDTH - 10),
         .y = @mod((INITIAL_POS.y + vInit.vy * tick + a.vy * tick * tick / 2), SCREEN_HEIGHT - 10),
@@ -70,6 +83,8 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
 export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppResult {
     _ = appstate;
 
+    // TODO: link renderer and other init parameters inside a Struct and make appstate point to that
+
     // std.debug.print("EVENT: {any} /n", .{event});
 
     if (event) |e| {
@@ -111,7 +126,7 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     std.debug.print("CurrentTick: {}\n", .{currentTick});
 
     rectPosition = translate2DShape(rectPosition, vel, acc, currentTick);
-
+    _ = c.SDL_SetRenderScale(renderer, 1.0, 1.0);
     _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 220, c.SDL_ALPHA_OPAQUE); // blue
     rect.x = rectPosition.x;
     rect.y = rectPosition.y;
