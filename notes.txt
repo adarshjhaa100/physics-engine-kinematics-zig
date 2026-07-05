@@ -28,6 +28,20 @@ Screen UI:
 - multiple options to configure between game modes
 
 Final product like:
-    1. Cannon shooter with distance count
+    1. Cannon shooter with distance count, inital angle setter (angry birds)
     2. Side scroller with jump
-    3. all direction movement 2d like zelda/pokemon etc.
+    3. (redacted, not required, not relevant) all direction movement 2d like zelda/pokemon etc.
+    4. Motion under free fall on earth
+    5. Breakout clone
+
+
+DEV PROCESS:
+    - File Structure and Initial Entities (Schemas, Functions) required for this process
+        Kinematics - Posn, Velocity, Acceleration, Time, M:Collision, translateParticle, Accelerate etc.
+        Particle - Shape, Posn
+        Arena - game setting - boundaries, mazes, enemies, physics constraints (etc.)
+        Global States - Stores Everything related to global data in appstate
+        Game - Configs and Their Implementation
+        (FPS, Window Size, Grids, Menus, Characters in game - need config, Scripts, Debug Outputs etc)
+    - Just start placing particles, adding characteristics etc, write scripts/functions for core kinematics logic, game logic etc.
+    - Start with cannon shooter

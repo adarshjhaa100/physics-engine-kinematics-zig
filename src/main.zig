@@ -12,6 +12,7 @@ var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
 var prevTime: u64 = 0;
 const ACCL_G = 9.8;
+const TARGET_FPS = 60;
 const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
 var rectPosition: SCHEMA.Position = INITIAL_POS;
 var allocator: std.mem.Allocator = undefined;
@@ -77,6 +78,8 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
     // logical dimensions (actual rendering "arena" space)
     _ = c.SDL_SetRenderLogicalPresentation(renderer, SCREEN_WIDTH, SCREEN_HEIGHT, c.SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
+    _ = c.SDL_SetRenderVSync(renderer, 1);
+
     return c.SDL_APP_CONTINUE;
 }
 
@@ -104,6 +107,11 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     _ = appstate;
 
+    // TIME
+    const initialTickMs = c.SDL_GetTicks();
+    const currentTick: f32 = @as(f32, @floatFromInt(initialTickMs)) / 1000.0; // time in seconds
+    std.debug.print("CurrentTick: {}\n", .{currentTick});
+
     // Keyboard input, key_states is snapshot of internal SDL arr
     // This has size SDL_SCANCODE_COUNT(512)
     const key_states = c.SDL_GetKeyboardState(null);
@@ -119,12 +127,8 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
 
     var rect: c.SDL_FRect = .{};
-    const vel: SCHEMA.Velocity = .{ .vx = 50, .vy = -50 };
+    const vel: SCHEMA.Velocity = .{ .vx = 20, .vy = -20 };
     const acc: SCHEMA.Velocity = .{ .vx = 10, .vy = -3 + ACCL_G };
-
-    // time
-    const currentTick: f32 = @as(f32, @floatFromInt(c.SDL_GetTicks())) / 1000.0; // time in seconds
-    std.debug.print("CurrentTick: {}\n", .{currentTick});
 
     rectPosition = translate2DShape(rectPosition, vel, acc, currentTick);
     _ = c.SDL_SetRenderScale(renderer, 1.0, 1.0);
@@ -139,6 +143,11 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     // Finalize the render on screen
     _ = c.SDL_RenderPresent(renderer); // paint the screen
 
+    // delta for FPS to catch up
+    // const elapsedDeltaTick = c.SDL_GetTicks() - initialTickMs;
+    // if (elapsedDeltaTick > THRESHOLD) {
+    //     c.SDL_Sleep
+    // }
     return c.SDL_APP_CONTINUE;
 }
 
