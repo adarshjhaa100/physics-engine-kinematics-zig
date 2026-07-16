@@ -45,3 +45,8 @@ DEV PROCESS:
         (FPS, Window Size, Grids, Menus, Characters in game - need config, Scripts, Debug Outputs etc)
     - Just start placing particles, adding characteristics etc, write scripts/functions for core kinematics logic, game logic etc.
     - Start with cannon shooter
+
+TODO:
+- config setup
+- link config consts and other shareable states with appstate
+- initial arena with backgroud + player gen + object gen algo ready

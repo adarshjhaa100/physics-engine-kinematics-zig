@@ -1,4 +1,5 @@
 const std = @import("std");
+
 const SCHEMA = @import("type_schema.zig");
 
 const c = @cImport({
@@ -15,13 +16,18 @@ const ACCL_G = 9.8;
 const TARGET_FPS = 60;
 const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
 var rectPosition: SCHEMA.Position = INITIAL_POS;
-var allocator: std.mem.Allocator = undefined;
+var global_arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this should be here and deinit in local
+
+const AppState = struct {
+    a: i32,
+    b: i32,
+    fba: std.heap.FixedBufferAllocator,
+};
 
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
 // Inside it, we immediately delegate execution to SDL3's C callback engine.
-pub fn main(init: std.process.Init) void {
-    allocator = init.gpa;
+pub fn main() void {
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
@@ -32,16 +38,16 @@ pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: 
 
     // allocate text using default allocator and get a slice to it
     // This is runtime now!
-    const textStats = std.fmt.allocPrint(allocator, "\nPosn {}\n", .{initialPos}) catch "Error";
-    defer allocator.free(textStats);
-    std.debug.print("Len {}\n", .{textStats.len});
+    // const textStats = std.fmt.allocPrint(allocator, "\nPosn {}\n", .{initialPos}) catch "Error";
+    // defer allocator.free(textStats);
+    // std.debug.print("Len {}\n", .{textStats.len});
 
     // render Text
     // Use this to scale text - SDL_SetRenderScale(renderer, 4.0f, 4.0f);
     _ = c.SDL_SetRenderScale(renderer, 1, 1);
     _ = c.SDL_SetRenderDrawColor(renderer, 220, 220, 220, c.SDL_ALPHA_OPAQUE);
 
-    _ = c.SDL_RenderDebugText(renderer, SCREEN_WIDTH - @as(f32, @floatFromInt(textStats.len * 8)), 10, textStats.ptr);
+    // _ = c.SDL_RenderDebugText(renderer, SCREEN_WIDTH - @as(f32, @floatFromInt(textStats.len * 8)), 10, textStats.ptr);
     // x2 = x1+ut (x1 is the position at the start, the abov    e code was wrong)
     const finalPos: SCHEMA.Position = .{
         .x = @mod((INITIAL_POS.x + vInit.vx * tick + a.vx * tick * tick / 2), SCREEN_WIDTH - 10),
@@ -57,10 +63,27 @@ pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: 
 // `argv` is `char *argv[]` in C. In Zig, C pointers (`[*c]`) are inherently
 // nullable, so we do NOT wrap them in an optional `?`.
 export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) c.SDL_AppResult {
-    _ = appstate;
     _ = argc;
     _ = argv;
 
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this needs to be here and deinit later ig
+
+    const init_app_state =
+        arena.allocator().create(AppState) catch {
+            std.debug.print("Failed to allocate AppState\n", .{});
+            return c.SDL_APP_FAILURE;
+        };
+
+    // Use this instead of static to keep it in scope
+    const buf_ptr = arena.allocator().alloc(u8, 1024) catch return c.SDL_APP_FAILURE;
+
+    init_app_state.a = 12;
+    init_app_state.b = 23;
+    init_app_state.fba = std.heap.FixedBufferAllocator.init(buf_ptr);
+
+    if (appstate) |appstate_ptr| {
+        appstate_ptr.* = @ptrCast(init_app_state);
+    }
     _ = c.SDL_SetAppMetadata("Kinematics simulation engine", "1.0", "tcsc.physics.kinematics-simulation");
 
     prevTime = c.SDL_GetTicksNS();
@@ -86,7 +109,6 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
 // 3. EVENT CALLBACK
 export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppResult {
     _ = appstate;
-
     // TODO: link renderer and other init parameters inside a Struct and make appstate point to that
 
     // std.debug.print("EVENT: {any} /n", .{event});
@@ -105,7 +127,12 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 
 // 4. RENDER CALLBACK
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
-    _ = appstate;
+    // _ = appstate;
+
+    if (appstate) |validated_state| {
+        const appState: *AppState = @ptrCast(@alignCast(validated_state));
+        std.debug.print("\nAppstate: {d}\n", .{appState.a});
+    }
 
     // TIME
     const initialTickMs = c.SDL_GetTicks();
@@ -120,6 +147,9 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
             std.debug.print("Key {} is pressed\n", .{i});
         }
     }
+
+    // Load Sprite
+    // c.SDL_LoadPNG(file: [*c]const u8)
 
     // This line is necessary since this color is what SDL will use to clear and paint screen
     // Sdl render options take the last draw color set
@@ -156,6 +186,13 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
 // Zig requires every function to explicitly declare its return type.
 // Since this returns nothing, we must explicitly write `void`.
 export fn SDL_AppQuit(appstate: ?*anyopaque, result: c.SDL_AppResult) void {
-    _ = appstate;
+    if (appstate) |appstate_ptr| {
+        const appState: *AppState = @ptrCast(@alignCast(appstate_ptr));
+        std.debug.print("\nDeallocate: {}\n", .{appState.a});
+    }
+    std.debug.print("\nCurrent Allocated arena memory {x}\n", .{global_arena_allocator.queryCapacity()});
+
+    global_arena_allocator.deinit();
+
     _ = result;
 }

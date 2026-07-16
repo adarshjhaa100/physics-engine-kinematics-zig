@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -23,7 +24,9 @@ pub fn build(b: *std.Build) void {
     // FIRST PRINCIPLE: Linker Search Paths
     // The linker needs to find libSDL3.so. Based on your previous error output,
     // your system places 64-bit libraries in /usr/lib/x86_64-linux-gnu.
-    mod.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
+    if (builtin.target.os.tag == .linux) {
+        mod.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
+    }
 
     // Fallback to /usr/lib just in case your specific setup put it there
     mod.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
