@@ -1,4 +1,5 @@
 const std = @import("std");
+const utils = @import("utils.zig");
 
 const SCHEMA = @import("type_schema.zig");
 
@@ -30,32 +31,6 @@ const AppState = struct {
 pub fn main() void {
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
-}
-
-pub fn translate2DShape(initialPos: SCHEMA.Position, vInit: SCHEMA.Velocity, a: SCHEMA.Velocity, tick: f32) SCHEMA.Position {
-    std.debug.print("Posn {}\n", .{initialPos});
-    std.debug.print("Current Velocity vx={}, vy={}\n", .{ vInit.vx + a.vx * tick, vInit.vy + a.vy * tick });
-
-    // allocate text using default allocator and get a slice to it
-    // This is runtime now!
-    // const textStats = std.fmt.allocPrint(allocator, "\nPosn {}\n", .{initialPos}) catch "Error";
-    // defer allocator.free(textStats);
-    // std.debug.print("Len {}\n", .{textStats.len});
-
-    // render Text
-    // Use this to scale text - SDL_SetRenderScale(renderer, 4.0f, 4.0f);
-    _ = c.SDL_SetRenderScale(renderer, 1, 1);
-    _ = c.SDL_SetRenderDrawColor(renderer, 220, 220, 220, c.SDL_ALPHA_OPAQUE);
-
-    // _ = c.SDL_RenderDebugText(renderer, SCREEN_WIDTH - @as(f32, @floatFromInt(textStats.len * 8)), 10, textStats.ptr);
-    // x2 = x1+ut (x1 is the position at the start, the abov    e code was wrong)
-    const finalPos: SCHEMA.Position = .{
-        .x = @mod((INITIAL_POS.x + vInit.vx * tick + a.vx * tick * tick / 2), SCREEN_WIDTH - 10),
-        .y = @mod((INITIAL_POS.y + vInit.vy * tick + a.vy * tick * tick / 2), SCREEN_HEIGHT - 10),
-    };
-
-    // x2 = x1 + u*t
-    return finalPos;
 }
 
 // 2. INITIALIZATION CALLBACK
@@ -141,34 +116,17 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
 
     // Keyboard input, key_states is snapshot of internal SDL arr
     // This has size SDL_SCANCODE_COUNT(512)
-    const key_states = c.SDL_GetKeyboardState(null);
-    for (key_states, 0..c.SDL_SCANCODE_COUNT) |_, i| {
-        if (key_states[i]) {
-            std.debug.print("Key {} is pressed\n", .{i});
-        }
-    }
-
-    // Load Sprite
-    // c.SDL_LoadPNG(file: [*c]const u8)
+    // const key_states = c.SDL_GetKeyboardState(null);
+    // for (key_states, 0..c.SDL_SCANCODE_COUNT) |_, i| {
+    //     if (key_states[i]) {
+    //         std.debug.print("Key {} is pressed\n", .{i});
+    //     }
+    // }
 
     // This line is necessary since this color is what SDL will use to clear and paint screen
     // Sdl render options take the last draw color set
     _ = c.SDL_SetRenderDrawColor(renderer, 20, 20, 20, c.SDL_ALPHA_OPAQUE); // black background
     _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
-
-    var rect: c.SDL_FRect = .{};
-    const vel: SCHEMA.Velocity = .{ .vx = 20, .vy = -20 };
-    const acc: SCHEMA.Velocity = .{ .vx = 10, .vy = -3 + ACCL_G };
-
-    rectPosition = translate2DShape(rectPosition, vel, acc, currentTick);
-    _ = c.SDL_SetRenderScale(renderer, 1.0, 1.0);
-    _ = c.SDL_SetRenderDrawColor(renderer, 0, 0, 220, c.SDL_ALPHA_OPAQUE); // blue
-    rect.x = rectPosition.x;
-    rect.y = rectPosition.y;
-    rect.w = 50;
-    rect.h = 50;
-
-    _ = c.SDL_RenderRect(renderer, &rect);
 
     // Finalize the render on screen
     _ = c.SDL_RenderPresent(renderer); // paint the screen
@@ -191,6 +149,8 @@ export fn SDL_AppQuit(appstate: ?*anyopaque, result: c.SDL_AppResult) void {
         std.debug.print("\nDeallocate: {}\n", .{appState.a});
     }
     std.debug.print("\nCurrent Allocated arena memory {x}\n", .{global_arena_allocator.queryCapacity()});
+
+    std.debug.print("\nCWD: {any}", .{std.Io.Dir.cwd()});
 
     global_arena_allocator.deinit();
 
