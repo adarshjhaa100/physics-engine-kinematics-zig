@@ -18,7 +18,7 @@ const TARGET_FPS = 60;
 const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
 var rectPosition: SCHEMA.Position = INITIAL_POS;
 
-const MEMORY_POOL_SIZE: u16 = 10 * 1024;
+const MEMORY_POOL_SIZE: u32 = 100 * 1024;
 var global_pool_buffer: [MEMORY_POOL_SIZE]u8 = undefined;
 var global_fba =
     std.heap.FixedBufferAllocator.init(global_pool_buffer[0..]);
@@ -30,16 +30,16 @@ const AppState = struct {
 };
 
 // Pre initialize required params
-pub fn gameInit() !void {
-    try utils.ReadConfigFile(global_fba.allocator());
+pub fn gameInit(init: std.process.Init) !void {
+    try utils.ReadConfigFile(init, global_fba.allocator());
 }
 
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
 // Inside it, we immediately delegate execution to SDL3's C callback engine.
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     // Game Init
-    gameInit() catch return;
+    gameInit(init) catch return;
 
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);

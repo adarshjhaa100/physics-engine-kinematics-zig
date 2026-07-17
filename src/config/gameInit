@@ -2,5 +2,5 @@ game_screen_width=800
 game_screen_height=600
 game_target_fps=60
 game_background_color=blue
-game_background_texture=/test/path
 physics_earth_gravity=9.8
+game_background_texture=/path/to/texture
