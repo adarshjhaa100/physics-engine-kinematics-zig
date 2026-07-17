@@ -17,7 +17,11 @@ const ACCL_G = 9.8;
 const TARGET_FPS = 60;
 const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
 var rectPosition: SCHEMA.Position = INITIAL_POS;
-var global_arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this should be here and deinit in local
+
+const MEMORY_POOL_SIZE: u16 = 10 * 1024;
+var global_pool_buffer: [MEMORY_POOL_SIZE]u8 = undefined;
+var global_fba =
+    std.heap.FixedBufferAllocator.init(global_pool_buffer[0..]);
 
 const AppState = struct {
     a: i32,
@@ -25,10 +29,18 @@ const AppState = struct {
     fba: std.heap.FixedBufferAllocator,
 };
 
+// Pre initialize required params
+pub fn gameInit() !void {
+    try utils.ReadConfigFile(global_fba.allocator());
+}
+
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
 // Inside it, we immediately delegate execution to SDL3's C callback engine.
-pub fn main() void {
+pub fn main() !void {
+    // Game Init
+    gameInit() catch return;
+
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
@@ -41,16 +53,16 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
     _ = argc;
     _ = argv;
 
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this needs to be here and deinit later ig
+    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this needs to be here and deinit later ig
 
     const init_app_state =
-        arena.allocator().create(AppState) catch {
+        global_fba.allocator().create(AppState) catch {
             std.debug.print("Failed to allocate AppState\n", .{});
             return c.SDL_APP_FAILURE;
         };
 
     // Use this instead of static to keep it in scope
-    const buf_ptr = arena.allocator().alloc(u8, 1024) catch return c.SDL_APP_FAILURE;
+    const buf_ptr = global_fba.allocator().alloc(u8, 1024) catch return c.SDL_APP_FAILURE;
 
     init_app_state.a = 12;
     init_app_state.b = 23;
@@ -102,17 +114,17 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 
 // 4. RENDER CALLBACK
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
-    // _ = appstate;
+    _ = appstate;
 
-    if (appstate) |validated_state| {
-        const appState: *AppState = @ptrCast(@alignCast(validated_state));
-        std.debug.print("\nAppstate: {d}\n", .{appState.a});
-    }
+    // if (appstate) |validated_state| {
+    //     const appState: *AppState = @ptrCast(@alignCast(validated_state));
+    //     std.debug.print("\nAppstate: {d}\n", .{appState.a});
+    // }
 
     // TIME
-    const initialTickMs = c.SDL_GetTicks();
-    const currentTick: f32 = @as(f32, @floatFromInt(initialTickMs)) / 1000.0; // time in seconds
-    std.debug.print("CurrentTick: {}\n", .{currentTick});
+    // const initialTickMs = c.SDL_GetTicks();
+    // const currentTick: f32 = @as(f32, @floatFromInt(initialTickMs)) / 1000.0; // time in seconds
+    // std.debug.print("CurrentTick: {}\n", .{currentTick});
 
     // Keyboard input, key_states is snapshot of internal SDL arr
     // This has size SDL_SCANCODE_COUNT(512)
@@ -148,11 +160,11 @@ export fn SDL_AppQuit(appstate: ?*anyopaque, result: c.SDL_AppResult) void {
         const appState: *AppState = @ptrCast(@alignCast(appstate_ptr));
         std.debug.print("\nDeallocate: {}\n", .{appState.a});
     }
-    std.debug.print("\nCurrent Allocated arena memory {x}\n", .{global_arena_allocator.queryCapacity()});
+    std.debug.print("\nCurrent Allocated arena memory {d}\n", .{global_fba.end_index});
 
     std.debug.print("\nCWD: {any}", .{std.Io.Dir.cwd()});
 
-    global_arena_allocator.deinit();
+    global_fba.reset(); // endIndex = 0
 
     _ = result;
 }

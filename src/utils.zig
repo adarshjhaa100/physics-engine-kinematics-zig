@@ -7,7 +7,7 @@ pub const GameConfigValue = struct {
     key_type: enum { int, float, string },
 };
 
-fn GameConfigMapInit(allocator: std.mem.Allocator) std.AutoHashMap(GameConfigKeys, GameConfigValue) {
+fn GameConfigMapInit(allocator: std.mem.Allocator) !std.AutoHashMap(GameConfigKeys, GameConfigValue) {
     var game_config_map_init =
         std.AutoHashMap(GameConfigKeys, GameConfigValue).init(allocator);
 
@@ -16,24 +16,29 @@ fn GameConfigMapInit(allocator: std.mem.Allocator) std.AutoHashMap(GameConfigKey
     const FLOAT_KEYS = [_]GameConfigKeys{.physics_earth_gravity};
 
     for (INT_KEYS) |value| {
-        game_config_map_init
-            .put(value, .{ .key_type = .int, .key_value = undefined });
+        try game_config_map_init.put(value, .{ .key_type = .int, .key_value = undefined });
     }
     for (FLOAT_KEYS) |value| {
-        game_config_map_init
-            .put(value, .{ .key_type = .float, .key_value = undefined });
+        try game_config_map_init.put(value, .{ .key_type = .float, .key_value = undefined });
     }
     for (STRING_KEYS) |value| {
-        game_config_map_init
-            .put(value, .{ .key_type = .string, .key_value = undefined });
+        try game_config_map_init.put(value, .{ .key_type = .string, .key_value = undefined });
     }
 
     return game_config_map_init;
 }
 
 // Read file at pat based on config list defined
-pub fn ReadConfigFile(allocator: std.mem.Allocator) void {
-    var game_config_map = GameConfigMapInit(allocator);
-    var file_buffer:[1024]
-    const file_content = std.Io.File(file: File, io: Io, buffer: []u8);
+pub fn ReadConfigFile(allocator: std.mem.Allocator) !void {
+    var game_config_map = try GameConfigMapInit(allocator);
+    var iterator = game_config_map.keyIterator();
+    while (iterator.next()) |key| {
+        const actualKey = key.*;
+        std.debug.print("\nKey: {any}, Value: {any}\n", .{ actualKey, game_config_map.get(actualKey) });
+    }
+
+    // var file_buffer:[1024]
+    // try std.Io.File.read
+    // s
+    // const file_content = std.Io.File(file: File,     io: Io, buffer: []u8);
 }
