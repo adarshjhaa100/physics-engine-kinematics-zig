@@ -47,6 +47,8 @@ DEV PROCESS:
     - Start with cannon shooter
 
 TODO:
-- config setup
+- ( done file ) config setup
 - link config consts and other shareable states with appstate
 - initial arena with backgroud + player gen + object gen algo ready
+- breakout game with proper arena setup and physics
+- (next) Angry Bird

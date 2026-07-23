@@ -8,39 +8,52 @@ const c = @cImport({
     @cInclude("SDL3/SDL_main.h");
 });
 
-const SCREEN_HEIGHT = 600;
-const SCREEN_WIDTH = 800;
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;
 var prevTime: u64 = 0;
-const ACCL_G = 9.8;
-const TARGET_FPS = 60;
-const INITIAL_POS: SCHEMA.Position = .{ .x = 0, .y = SCREEN_HEIGHT - 50 };
-var rectPosition: SCHEMA.Position = INITIAL_POS;
 
-const MEMORY_POOL_SIZE: u32 = 100 * 1024;
+const MEMORY_POOL_SIZE: u32 = 10 * 1024;
 var global_pool_buffer: [MEMORY_POOL_SIZE]u8 = undefined;
 var global_fba =
     std.heap.FixedBufferAllocator.init(global_pool_buffer[0..]);
+var app_processs_init: std.process.Init = undefined;
 
 const AppState = struct {
-    a: i32,
-    b: i32,
     fba: std.heap.FixedBufferAllocator,
+    game_screen_width: i32,
+    game_screen_height: i32,
+    game_target_fps: i32,
+    game_background_color: []const u8,
+    game_background_texture: []const u8,
+    physics_earth_gravity: f32,
 };
 
-// Pre initialize required params
-pub fn gameInit(init: std.process.Init) !void {
-    try utils.ReadConfigFile(init, global_fba.allocator());
+pub fn gameContextSetup(app_state_ptr: *AppState, init_app_state: utils.GameConfigMap) void {
+    app_state_ptr.game_screen_width =
+        init_app_state[@intFromEnum(utils.GameConfigKey.game_screen_width)].int;
+    app_state_ptr.game_screen_height =
+        init_app_state[@intFromEnum(utils.GameConfigKey.game_screen_height)].int;
+    app_state_ptr.game_target_fps =
+        init_app_state[@intFromEnum(utils.GameConfigKey.game_target_fps)].int;
+    app_state_ptr.physics_earth_gravity =
+        init_app_state[@intFromEnum(utils.GameConfigKey.physics_earth_gravity)].float;
+    app_state_ptr.game_background_color =
+        init_app_state[@intFromEnum(utils.GameConfigKey.game_background_color)].string[0..];
+    // Use this instead of static to keep it in scope
+    // Move this to separate method
+    const buf_ptr =
+        global_fba.allocator().alloc(u8, 1024) catch return;
+    app_state_ptr.game_background_texture = init_app_state[@intFromEnum(utils.GameConfigKey.game_background_texture)].string[0..];
+    app_state_ptr.fba =
+        std.heap.FixedBufferAllocator.init(buf_ptr);
 }
 
 // 1. THE ZIG ENTRY POINT
 // FIRST PRINCIPLE: We must satisfy Zig's runtime by providing a `pub fn main()`.
 // Inside it, we immediately delegate execution to SDL3's C callback engine.
-pub fn main(init: std.process.Init) !void {
+pub fn main(init: std.process.Init) void {
     // Game Init
-    gameInit(init) catch return;
-
+    app_processs_init = init;
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
     _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
@@ -53,24 +66,22 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
     _ = argc;
     _ = argv;
 
-    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator); // this needs to be here and deinit later ig
+    // load init
+    const config_init =
+        utils.ReadConfigFile(app_processs_init, global_fba.allocator()) catch return c.SDL_APP_FAILURE;
 
     const init_app_state =
         global_fba.allocator().create(AppState) catch {
             std.debug.print("Failed to allocate AppState\n", .{});
             return c.SDL_APP_FAILURE;
         };
-
-    // Use this instead of static to keep it in scope
-    const buf_ptr = global_fba.allocator().alloc(u8, 1024) catch return c.SDL_APP_FAILURE;
-
-    init_app_state.a = 12;
-    init_app_state.b = 23;
-    init_app_state.fba = std.heap.FixedBufferAllocator.init(buf_ptr);
+    gameContextSetup(init_app_state, config_init);
 
     if (appstate) |appstate_ptr| {
+        // Point appstate to initialized app state
         appstate_ptr.* = @ptrCast(init_app_state);
     }
+
     _ = c.SDL_SetAppMetadata("Kinematics simulation engine", "1.0", "tcsc.physics.kinematics-simulation");
 
     prevTime = c.SDL_GetTicksNS();
@@ -80,13 +91,13 @@ export fn SDL_AppInit(appstate: ?*?*anyopaque, argc: c_int, argv: [*c]?[*:0]u8) 
         return c.SDL_APP_FAILURE;
     }
 
-    if (!c.SDL_CreateWindowAndRenderer("tcsc/physics/kinematics-simulation", SCREEN_WIDTH, SCREEN_HEIGHT, c.SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+    if (!c.SDL_CreateWindowAndRenderer("tcsc/physics/kinematics-simulation", init_app_state.game_screen_width, init_app_state.game_screen_height, c.SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         std.debug.print("Couldn't create window/renderer: {s}\n", .{c.SDL_GetError()});
         return c.SDL_APP_FAILURE;
     }
 
     // logical dimensions (actual rendering "arena" space)
-    _ = c.SDL_SetRenderLogicalPresentation(renderer, SCREEN_WIDTH, SCREEN_HEIGHT, c.SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    _ = c.SDL_SetRenderLogicalPresentation(renderer, init_app_state.game_screen_width, init_app_state.game_screen_height, c.SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
     _ = c.SDL_SetRenderVSync(renderer, 1);
 
@@ -158,7 +169,7 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
 export fn SDL_AppQuit(appstate: ?*anyopaque, result: c.SDL_AppResult) void {
     if (appstate) |appstate_ptr| {
         const appState: *AppState = @ptrCast(@alignCast(appstate_ptr));
-        std.debug.print("\nDeallocate: {}\n", .{appState.a});
+        std.debug.print("\nGame ht: {}\n", .{appState.game_screen_height});
     }
     std.debug.print("\nCurrent Allocated arena memory {d}\n", .{global_fba.end_index});
 

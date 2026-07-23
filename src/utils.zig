@@ -1,49 +1,70 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const GameConfigKeys = enum { game_screen_width, game_screen_height, game_target_fps, game_background_color, game_background_texture, physics_earth_gravity };
-
-pub const KeyTypes = enum { int, float, string };
-
-pub const GameConfigValue = struct {
-    key_value: []const u8,
-    key_type: KeyTypes,
+// Ownership local or global???? ( allocator needs to be locally as well )
+// We'll have list of allocators which we'll free later
+pub const GameConfigKey = enum(u8) {
+    game_screen_width,
+    game_screen_height,
+    game_target_fps,
+    game_background_color,
+    game_background_texture,
+    physics_earth_gravity,
+    // Count of fields
+    pub const count = @typeInfo(GameConfigKey).@"enum".fields.len;
 };
 
-fn GameConfigMapInit(allocator: std.mem.Allocator) !std.AutoHashMap(GameConfigKeys, GameConfigValue) {
-    var game_config_map_init =
-        std.AutoHashMap(GameConfigKeys, GameConfigValue).init(allocator);
+pub const GameConfigVarValue = union(enum) {
+    int: i32,
+    float: f32,
+    string: [64]u8,
+};
 
-    const INT_KEYS = [_]GameConfigKeys{ .game_screen_width, .game_screen_height, .game_target_fps };
-    const STRING_KEYS = [_]GameConfigKeys{ .game_background_color, .game_background_texture };
-    const FLOAT_KEYS = [_]GameConfigKeys{.physics_earth_gravity};
+// Key val where key is int val of enum GameConfigKey
+pub const GameConfigMap = [GameConfigKey.count]GameConfigVarValue;
 
-    for (INT_KEYS) |value| {
-        try game_config_map_init.put(value, .{ .key_type = .int, .key_value = undefined });
-    }
-    for (FLOAT_KEYS) |value| {
-        try game_config_map_init.put(value, .{ .key_type = .float, .key_value = undefined });
-    }
-    for (STRING_KEYS) |value| {
-        try game_config_map_init.put(value, .{ .key_type = .string, .key_value = undefined });
-    }
-
-    return game_config_map_init;
+pub fn sliceToFixedString(comptime len: usize, slice: []const u8) [len]u8 {
+    var buff: [len]u8 = undefined;
+    @memset(&buff, 0);
+    @memcpy(buff[0..slice.len], slice);
+    return buff;
 }
 
+// blk: defines anonymous function
+// internally fn blk() {return map;}
+pub const game_config_default_map: GameConfigMap = blk: {
+    var mp: GameConfigMap = undefined;
+    mp[@intFromEnum(GameConfigKey.game_screen_width)] =
+        .{ .int = 800 };
+    mp[@intFromEnum(GameConfigKey.game_screen_height)] =
+        .{ .int = 600 };
+    mp[@intFromEnum(GameConfigKey.game_target_fps)] =
+        .{ .int = 60 };
+    mp[@intFromEnum(GameConfigKey.game_background_color)] =
+        .{ .string = sliceToFixedString(64, "blue") };
+    mp[@intFromEnum(GameConfigKey.game_background_texture)] =
+        .{ .string = sliceToFixedString(64, "texture") };
+    mp[@intFromEnum(GameConfigKey.physics_earth_gravity)] =
+        .{ .float = 9.81 };
+    break :blk mp;
+};
+
 // Read file at pat based on config list defined
-pub fn ReadConfigFile(init: std.process.Init, allocator: std.mem.Allocator) !void {
-    var game_config_map = try GameConfigMapInit(allocator);
+pub fn ReadConfigFile(init: std.process.Init, allocator: std.mem.Allocator) !GameConfigMap {
+    // create copy of value
+    var game_config_map = game_config_default_map;
 
     // Current path
     const io = init.io;
     var buff = try allocator.alloc(u8, std.fs.max_path_bytes);
-    const cwd = std.Io.Dir.cwd();
+    const cwd = std.Io.Dir.cwd(); // returns a handle to cwd
     const pathLen = try std.Io.Dir.realPathFile(cwd, io, ".", buff);
 
     // read file
     // Open File
-    const file = try cwd.openFile(io, "./src/config/gameInit", .{ .mode = .read_only });
+    // Default Values set?
+    const file =
+        try cwd.openFile(io, "./src/config/gameInit", .{ .mode = .read_only });
     defer file.close(io);
 
     // 2. Create reader(reader memoizes key info abt file) with buffer
@@ -54,30 +75,43 @@ pub fn ReadConfigFile(init: std.process.Init, allocator: std.mem.Allocator) !voi
     while (try reader.interface.takeDelimiter('\n')) |line| {
         // Iterator for "splitting" (it goes over string and stores index of split chars and returns slice in between till line end)
         var split_iterator = std.mem.splitScalar(u8, line, '=');
-
-        // key
+        // key ,get next "token" separated by separator
         if (split_iterator.next()) |verified_key| {
-            const key_enum = std.meta.stringToEnum(GameConfigKeys, verified_key);
+            const key_enum =
+                std.meta.stringToEnum(GameConfigKey, verified_key);
             if (key_enum) |key_enum_eval| {
                 std.debug.print("\nInserting for key: {any}", .{key_enum_eval});
-
-                const existing = try game_config_map.getOrPut(key_enum_eval);
-                if (existing.found_existing) {
-                    if (split_iterator.next()) |value| {
-                        // try game_config_map.put(key_enum_eval, .{ .key_type = existing.value_ptr.key_type, .key_value = value });
-                        allocator.free(existing.value_ptr.key_value);
-                        existing.value_ptr.key_value = try allocator.dupe(u8, value);
+                const existing = game_config_map[@intFromEnum(key_enum_eval)];
+                if (split_iterator.next()) |value| {
+                    // dupe required since value_ptr.key_value "value" here is just a reference in backend
+                    switch (existing) {
+                        // NOTE: no capture here since we're assigning value
+                        .int => game_config_map[@intFromEnum(key_enum_eval)] =
+                            .{ .int = try std.fmt.parseInt(i32, value, 10) },
+                        .float => game_config_map[@intFromEnum(key_enum_eval)] =
+                            .{ .float = try std.fmt.parseFloat(f32, value) },
+                        .string => {
+                            game_config_map[@intFromEnum(key_enum_eval)] =
+                                .{ .string = sliceToFixedString(64, value) };
+                        },
                     }
                 }
             }
         }
     }
 
-    var iterator = game_config_map.keyIterator();
-    while (iterator.next()) |key| {
-        const actualKey = key.*;
-        std.debug.print("\nKey: {any}, Value: {s}\n", .{ actualKey, game_config_map.get(actualKey).?.key_value });
+    for (game_config_map, 0..) |value, index| {
+        const key: GameConfigKey = @enumFromInt(index);
+        std.debug.print("\nkey: {any}, \n", .{key});
+        switch (value) {
+            // This |i| is called capture.
+            .int => |i| std.debug.print("\nInt value: {d}\n", .{i}),
+            .float => |f| std.debug.print("\nFloat value: {d}\n", .{f}),
+            .string => |s| std.debug.print("\nString value: {s}\n", .{s}),
+        }
     }
 
     std.debug.print("\nRead CWD: {s}", .{buff[0..pathLen]});
+
+    return game_config_map;
 }
