@@ -1,9 +1,9 @@
 const std = @import("std");
 const utils = @import("utils.zig");
+const AppState = @import("type_schema.zig").AppState;
+const BreakoutGame = @import("games/breakout.zig");
 
-const SCHEMA = @import("type_schema.zig");
-
-const c = @cImport({
+pub const c = @cImport({
     @cInclude("SDL3/SDL.h");
     @cInclude("SDL3/SDL_main.h");
 });
@@ -18,16 +18,6 @@ var global_fba =
     std.heap.FixedBufferAllocator.init(global_pool_buffer[0..]);
 var app_processs_init: std.process.Init = undefined;
 
-const AppState = struct {
-    fba: std.heap.FixedBufferAllocator,
-    game_screen_width: i32,
-    game_screen_height: i32,
-    game_target_fps: i32,
-    game_background_color: []const u8,
-    game_background_texture: []const u8,
-    physics_earth_gravity: f32,
-};
-
 pub fn gameContextSetup(app_state_ptr: *AppState, init_app_state: utils.GameConfigMap) void {
     app_state_ptr.game_screen_width =
         init_app_state[@intFromEnum(utils.GameConfigKey.game_screen_width)].int;
@@ -37,8 +27,10 @@ pub fn gameContextSetup(app_state_ptr: *AppState, init_app_state: utils.GameConf
         init_app_state[@intFromEnum(utils.GameConfigKey.game_target_fps)].int;
     app_state_ptr.physics_earth_gravity =
         init_app_state[@intFromEnum(utils.GameConfigKey.physics_earth_gravity)].float;
+    const bg_color = init_app_state[@intFromEnum(utils.GameConfigKey.game_background_color)].string[0..6].*;
+    std.debug.print("\nBackground color: {any} and len: {d}\n", .{ bg_color, bg_color.len });
     app_state_ptr.game_background_color =
-        init_app_state[@intFromEnum(utils.GameConfigKey.game_background_color)].string[0..];
+        utils.HexToRGBCol(&bg_color) catch return;
     // Use this instead of static to keep it in scope
     // Move this to separate method
     const buf_ptr =
@@ -55,7 +47,8 @@ pub fn main(init: std.process.Init) void {
     // Game Init
     app_processs_init = init;
     // We pass 0 and null for argc/argv since we don't need CLI args for this example.
-    _ = c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
+    _ =
+        c.SDL_EnterAppMainCallbacks(0, null, SDL_AppInit, SDL_AppIterate, SDL_AppEvent, SDL_AppQuit);
 }
 
 // 2. INITIALIZATION CALLBACK
@@ -125,12 +118,26 @@ export fn SDL_AppEvent(appstate: ?*anyopaque, event: ?*c.SDL_Event) c.SDL_AppRes
 
 // 4. RENDER CALLBACK
 export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
-    _ = appstate;
+    // _ = appstate;
+    if (appstate) |validated_state| {
+        const appState: *AppState = @ptrCast(@alignCast(validated_state));
+        // std.debug.print("\nAppstate: {any}\n", .{appState.game_background_color});
 
-    // if (appstate) |validated_state| {
-    //     const appState: *AppState = @ptrCast(@alignCast(validated_state));
-    //     std.debug.print("\nAppstate: {d}\n", .{appState.a});
-    // }
+        // This line is necessary since this color is what SDL will use to clear and paint screen
+        // Sdl render options take the last draw color set
+
+        _ = c.SDL_SetRenderDrawColor(renderer, appState.game_background_color[0], appState.game_background_color[1], appState.game_background_color[2], c.SDL_ALPHA_OPAQUE); // black background
+        _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
+
+        // Pause menu??? Default - paused
+
+        // Init game
+        _ = BreakoutGame.Initialize(appState, renderer);
+        // play game
+
+        // Finalize the render on screen
+        _ = c.SDL_RenderPresent(renderer); // paint the screen
+    }
 
     // TIME
     // const initialTickMs = c.SDL_GetTicks();
@@ -145,14 +152,6 @@ export fn SDL_AppIterate(appstate: ?*anyopaque) c.SDL_AppResult {
     //         std.debug.print("Key {} is pressed\n", .{i});
     //     }
     // }
-
-    // This line is necessary since this color is what SDL will use to clear and paint screen
-    // Sdl render options take the last draw color set
-    _ = c.SDL_SetRenderDrawColor(renderer, 20, 20, 20, c.SDL_ALPHA_OPAQUE); // black background
-    _ = c.SDL_RenderClear(renderer); // Start with blank screen (above line is necessary to set blank canvas)
-
-    // Finalize the render on screen
-    _ = c.SDL_RenderPresent(renderer); // paint the screen
 
     // delta for FPS to catch up
     // const elapsedDeltaTick = c.SDL_GetTicks() - initialTickMs;

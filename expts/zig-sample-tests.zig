@@ -5,6 +5,19 @@ const assert = @import("std").debug.assert;
 const ValVar =
     union(enum) { int: i32, float: f32, string: []const u8 };
 
+pub fn HexToRGBCol(hex_color: []const u8) ![3]u8 {
+    assert(hex_color.len == 6); // Valid hex color
+
+    var rgb_col: [3]u8 = undefined;
+    const value = try std.fmt.parseInt(u24, hex_color, 16);
+    // 255 is 0xFF which is used to make zero rest of the digits
+    rgb_col[0] = @intCast((value >> 16) & 255);
+    rgb_col[1] = @intCast((value >> 8) & 255);
+    rgb_col[2] = @intCast((value >> 0) & 255);
+
+    return rgb_col;
+}
+
 test "for basic" {
     const items = [_]i32{ 1, 2, 3, 4, 5 }; // const array declaration with non fixed size
     const items2: [5]i32 = .{ 1, 2, 3, 4, 5 }; // explicit type casting
@@ -50,4 +63,9 @@ test "for basic" {
             .string => |s| std.debug.print("\nString value: {s}\n", .{s}),
         }
     }
+
+    // Hex to RGB
+    const hex_color: []const u8 = "451310";
+    const hex_to_rgb: [3]u8 = HexToRGBCol(hex_color) catch return;
+    std.debug.print("\nHex to RGB array of {s}, {any}\n", .{ hex_color, hex_to_rgb });
 }

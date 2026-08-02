@@ -1,9 +1,11 @@
-pub const Velocity = struct {
-    vx: f32,
-    vy: f32,
-};
+const std = @import("std");
 
-pub const Position = struct {
-    x: f32,
-    y: f32,
+pub const AppState = struct {
+    fba: std.heap.FixedBufferAllocator,
+    game_screen_width: i32,
+    game_screen_height: i32,
+    game_target_fps: i32,
+    game_background_color: [3]u8,
+    game_background_texture: []const u8,
+    physics_earth_gravity: f32,
 };

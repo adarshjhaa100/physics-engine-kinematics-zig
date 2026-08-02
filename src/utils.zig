@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const assert = @import("std").debug.assert;
 
 // Ownership local or global???? ( allocator needs to be locally as well )
 // We'll have list of allocators which we'll free later
@@ -7,7 +8,7 @@ pub const GameConfigKey = enum(u8) {
     game_screen_width,
     game_screen_height,
     game_target_fps,
-    game_background_color,
+    game_background_color, // hex value
     game_background_texture,
     physics_earth_gravity,
     // Count of fields
@@ -50,6 +51,7 @@ pub const game_config_default_map: GameConfigMap = blk: {
 };
 
 // Read file at pat based on config list defined
+// ~ 200 characters of config file
 pub fn ReadConfigFile(init: std.process.Init, allocator: std.mem.Allocator) !GameConfigMap {
     // create copy of value
     var game_config_map = game_config_default_map;
@@ -114,4 +116,17 @@ pub fn ReadConfigFile(init: std.process.Init, allocator: std.mem.Allocator) !Gam
     std.debug.print("\nRead CWD: {s}", .{buff[0..pathLen]});
 
     return game_config_map;
+}
+
+pub fn HexToRGBCol(hex_color: []const u8) ![3]u8 {
+    assert(hex_color.len == 6); // Valid hex color
+
+    var rgb_col: [3]u8 = undefined;
+    const value = try std.fmt.parseInt(u24, hex_color, 16);
+    // 255 is 0xFF which is used to make zero rest of the digits
+    rgb_col[0] = @intCast((value >> 16) & 255);
+    rgb_col[1] = @intCast((value >> 8) & 255);
+    rgb_col[2] = @intCast((value >> 0) & 255);
+
+    return rgb_col;
 }
