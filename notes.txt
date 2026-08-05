@@ -29,7 +29,7 @@ Screen UI:
 
 Final product like:
     1. Cannon shooter with distance count, inital angle setter (angry birds)
-    2. Car driving 2Dlator  
+    2. Car driving 2Dlator ( with arena setup beyond single screen going across multiple screens ) 
     3. Side scroller with jump
     4. (redacted, not required, not relevant) all direction movement 2d like zelda/pokemon etc.
     5. Motion under free fall on earth
