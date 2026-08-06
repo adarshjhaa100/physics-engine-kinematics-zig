@@ -27,7 +27,7 @@ Screen UI:
 - Screen Has XY axis with actual pixel markings based on proportions
 - multiple options to configure between game modes
 
-Final product like:
+Final product including:
     1. Cannon shooter with distance count, inital angle setter (angry birds)
     2. Side scroller with jump
     3. (redacted, not required, not relevant) all direction movement 2d like zelda/pokemon etc.
@@ -40,6 +40,10 @@ DEV PROCESS:
         Kinematics - Posn, Velocity, Acceleration, Time, M:Collision, translateParticle, Accelerate etc.
         Particle - Shape, Posn
         Arena - game setting - boundaries, mazes, enemies, physics constraints (etc.)
+            Setup maze structure using bitmap matrix type for simple maze with boundaries. Autoscale and autofit to the screen resolution. Make sure it's based on specific aspect ratio e.g 4:3 so matrix in 3a:4a (a multiplier int)
+            converter from bitmap to grid:
+                https://tuhinshubhra.github.io/bmparray/
+                https://javl.github.io/image2cpp/
         Global States - Stores Everything related to global data in appstate
         Game - Configs and Their Implementation
         (FPS, Window Size, Grids, Menus, Characters in game - need config, Scripts, Debug Outputs etc)
@@ -48,7 +52,8 @@ DEV PROCESS:
 
 TODO:
 - ( done file ) config setup
-- link config consts and other shareable states with appstate
+- (done) link config consts and other shareable states with appstate
 - initial arena with backgroud + player gen + object gen algo ready
 - breakout game with proper arena setup and physics
+    Breakout : 1 player wth block break
 - (next) Angry Bird
