@@ -1,12 +1,8 @@
-const std = @import("std");
+pub const std = @import("std");
 const utils = @import("utils.zig");
 const AppState = @import("type_schema.zig").AppState;
 const BreakoutGame = @import("games/breakout.zig");
-
-pub const c = @cImport({
-    @cInclude("SDL3/SDL.h");
-    @cInclude("SDL3/SDL_main.h");
-});
+const c = @import("common.zig").c_sdl;
 
 var window: ?*c.SDL_Window = null;
 var renderer: ?*c.SDL_Renderer = null;

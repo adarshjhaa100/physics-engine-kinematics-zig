@@ -1,6 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const assert = @import("std").debug.assert;
+const c_sdl = @import("common.zig").c_sdl;
+const AppState = @import("type_schema.zig").AppState;
 
 // Ownership local or global???? ( allocator needs to be locally as well )
 // We'll have list of allocators which we'll free later
@@ -129,4 +131,33 @@ pub fn HexToRGBCol(hex_color: []const u8) ![3]u8 {
     rgb_col[2] = @intCast((value >> 0) & 255);
 
     return rgb_col;
+}
+
+// render maze given input bitmap 1-d array and output
+pub fn render_maze(bitmap_arr: []const u8, grid_dimensions: [2]u8, app_state: *AppState, renderer: ?*c_sdl.SDL_Renderer) void {
+    // setup grid
+    const height_cell: f32 = @floatFromInt(@divFloor(app_state.game_screen_height, grid_dimensions[1]));
+    const width_cell: f32 = @floatFromInt(@divFloor(app_state.game_screen_width, grid_dimensions[0]));
+    const cells_per_row: u8 = grid_dimensions[0];
+
+    std.debug.print("\nGrid Dimensions: h, w {any}, {any}\n", .{ height_cell, width_cell });
+
+    for (bitmap_arr, 0..) |cell, index| {
+        if (cell == 1) {
+            const xpos: f32 = @floatFromInt(index % cells_per_row);
+            const ypos: f32 = @floatFromInt(@divFloor(index, cells_per_row));
+            const grid_cell: c_sdl.SDL_FRect = .{
+                .h = height_cell,
+                .w = width_cell,
+                .x = width_cell * xpos,
+                .y = height_cell * ypos,
+            };
+
+            std.debug.print("Grid cell to paint: i,j = {d},{d}, x, y = {d}, {}\n", .{ xpos, ypos, width_cell * xpos, height_cell * ypos });
+            _ = c_sdl.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 1);
+            _ = c_sdl.SDL_RenderRect(renderer, &grid_cell);
+            // _ = c.SDL_SetRenderDrawColor(renderer, 160, 170, 90, 1);
+            // _ = c.SDL_RenderFillRect(renderer, &grid_cell);
+        }
+    }
 }
