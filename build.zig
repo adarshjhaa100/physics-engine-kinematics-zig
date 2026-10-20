@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
     // 3. Create the Executable from the Module
     // The executable is now just a minimal wrapper around the module.
     const exe = b.addExecutable(.{
-        .name = "sdl3_clear",
+        .name = "kinematics-engine",
         .root_module = mod,
     });
 
